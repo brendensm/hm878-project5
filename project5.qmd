@@ -1,0 +1,158 @@
+---
+title: "Project 5"
+author: "Brenden Smith"
+date: 2023-10-17
+format:
+  html:
+    toc: true
+    theme: minty
+    self-contained: true
+---
+
+# Data import
+```{r}
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(survival)
+
+sd <- read_csv("data/HM 878 730 Clements - Survival Analysis R Data.csv") %>% 
+  mutate(
+    #death = factor(death, levels = c(0, 1),
+                 #  labels = c("Living", "Died")),
+    cursmoke = factor(cursmoke, levels = c(0, 1), 
+                      labels = c("Not current smoker", "Current smoker")),
+    diabetes = factor(diabetes, levels = c(0, 1),
+                      labels = c("Not diabetic", "Diabetic")),
+    educ = factor(educ, levels = c(1, 2, 3, 4),
+                  labels = c("0-11 years", "HS Diploma/GED", 
+                             "Some College/Vocational School",
+                             "College degree or more")),
+    prevchd = factor(prevchd, levels = c(0, 1),
+                    labels = c("No", "Yes")),
+    sex = factor(sex, levels = c(0, 1),
+                 labels = c("Female", "Male"))
+  )
+
+```
+
+# Cox Regression
+
+## Hazard Ratios
+```{r}
+
+cm <- coxph(Surv(TimeDeathYears, death) ~ cursmoke + diabetes +
+              educ + prevchd + age + bmi + sex, data = sd)
+
+summary(cm)
+
+sjPlot::tab_model(cm)
+```
+
+## Survival Curves 
+```{r}
+surv_fit_diab <-  survfit(Surv(TimeDeathYears, death) ~ diabetes, data = sd)
+
+col_diab <- c("lightgreen", "darkgreen")
+
+plot(
+  surv_fit_diab,
+  col = col_diab,
+  xlab = "Years",
+  ylab = "Survival Probability")
+legend(
+  "bottomright",
+  legend = c("Not diabetic","Diabetic"),
+  col = col_diab,
+  lty = 1,
+  cex = .9,
+  bty = "n")
+
+```
+
+## Interpretation
+
+# Kaplan-Meier
+**Conduct and interpret Kaplan-Meier for each categorical independent variable.**
+
+## Function for Analysis 
+```{r}
+km <- function(time, event, data, iv, title_label){
+  
+# plot <- survminer::ggsurvplot(
+#     model,
+#     data = data,    
+#     conf.int = FALSE,             
+#     surv.scale = "percent",        
+#     break.time.by = 2,            
+#     xlab = "Years",
+#     ylab = "Survival Probability",
+#     pval = T,                       
+#     risk.table = F,                
+#     legend.title = iv,       
+#     legend.labs = levels(iv),
+#     font.legend = 10, 
+#     palette = "Dark2",             
+#     surv.median.line = "hv",       
+#     ggtheme = theme_light() 
+#   )
+  
+model <-  survfit(Surv(time, event) ~ iv, data = sd)
+
+cols <- RColorBrewer::brewer.pal(4, "Set1")
+
+plot_title <- paste("Survival Curve by", title_label)
+
+plot(
+  model,
+  col = cols,
+  lwd = 2,
+  main = plot_title,
+  xlab = "Years",
+  ylab = "Survival Probability")
+legend(
+  "bottomright",
+  legend = levels(iv),
+  col = cols,
+  lty = 1,
+  cex = .9,
+  bty = "n")
+  
+  
+cat("Model summary with mean and median: \n")
+print(model, print.rmean = TRUE)
+
+logrank <- survdiff(Surv(time, event) ~ iv, data = data)
+print(logrank)
+  
+}
+```
+
+## Diabetes
+```{r}
+km(sd$TimeDeathYears, sd$death, sd, sd$diabetes, "Diabetes")
+```
+
+## Smoker Status
+```{r}
+km(sd$TimeDeathYears, sd$death, sd, sd$cursmoke, "Smoker Status")
+```
+
+## Education Level
+```{r}
+km(sd$TimeDeathYears, sd$death, sd, sd$educ, "Education")
+```
+
+
+## Prevalence of Coronary Heart Disease
+```{r}
+km(sd$TimeDeathYears, sd$death, sd, sd$prevchd, "CHD Prevalence")
+```
+
+## Sex
+```{r}
+km(sd$TimeDeathYears, sd$death, sd, sd$sex, "Sex")
+```
+
+
+
